@@ -1,0 +1,60 @@
+#!/bin/sh
+##
+if [ a$1 = a ]; then
+    NGINX_CONF="/etc/nginx/sites-enabled/default"
+else
+    NGINX_CONF=$1
+fi
+WEBROOT=/var/www/html
+CAKE_ROOT=$WEBROOT/cake
+CAKE_WEBROOT=$CAKE_ROOT/webroot
+NGINX_ROOT_DIR=$CAKE_WEBROOT
+
+##
+##
+add_location()
+{
+    local location=$1
+
+    if [ a$ADD_LOCATION != a ]; then
+	ln -s $CAKE_WEBROOT ${WEBROOT}/${ADD_LOCATION}
+	NGINX_ROOT_DIR=$WEBROOT
+    fi
+}
+
+generate_nginx_conf()
+{
+    add_location
+    cat <<EOF > ${NGINX_CONF}
+server {
+        listen 80 default_server;
+	root ${NGINX_ROOT_DIR};
+	index index.php;
+	server_name _;
+	location / {
+		try_files \$uri \$uri/ =404;
+	}
+EOF
+    cat <<EOF >> ${NGINX_CONF}
+	location ~ \.php$ {
+		 include snippets/fastcgi-php.conf;
+		 fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
+	}
+}
+EOF
+}
+
+##
+##
+echo "## Generating NGINX configuration"
+generate_nginx_conf
+cat $NGINX_CONF
+echo
+echo
+ls -l $CAKE_ROOT
+echo
+echo
+echo "## Start PHP-FPM Service"
+/etc/init.d/php7.0-fpm start
+echo "## Start NGINX Service"
+nginx -g "daemon off;"
